@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --green-900: #00600b;
+  --green-800: #3b8d48;
+  --green-700: #5aa05f;
+  --gold-50: #f5f1e3;
+  --white: #ffffff;
+}
+
+@theme inline {
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-cormorant);
+}
+
+body {
+  background: var(--green-900);
+  color: var(--white);
+  font-family: var(--font-sans), "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  min-height: 100%;
+  background-color: var(--green-900);
+}
+
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.45) transparent;
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.6);
+  background-clip: content-box;
+}
