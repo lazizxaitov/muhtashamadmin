@@ -7,6 +7,21 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+const normalizePosterImageUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  if (trimmed.startsWith("/")) {
+    return `https://joinposter.com${trimmed}`;
+  }
+  if (trimmed.startsWith("upload/") || trimmed.includes("/upload/")) {
+    return `https://joinposter.com/${trimmed.replace(/^\/+/, "")}`;
+  }
+  return trimmed;
+};
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const isAdmin = isAuthorized(request);
   if (!isAdmin && isRateLimited(request, { limit: 120, windowMs: 60_000 })) {
@@ -75,8 +90,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const itemDescRu = item.description_ru ?? "";
       const itemDescUz = item.description_uz ?? "";
       const image =
-        typeof item.image === "string" && item.image.startsWith("/")
-          ? `https://joinposter.com${item.image}`
+        typeof item.image === "string"
+          ? normalizePosterImageUrl(item.image)
           : item.image ?? "";
       return {
         id: item.id,
@@ -99,10 +114,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       nameUz: categoryNameUz,
       name: categoryName,
       hidden: Boolean(category.hidden),
-      image:
-        typeof categoryImage === "string" && categoryImage.startsWith("/")
-          ? `https://joinposter.com${categoryImage}`
-          : categoryImage || fallbackImage,
+      image: normalizePosterImageUrl(categoryImage) || fallbackImage,
       items,
     };
   });

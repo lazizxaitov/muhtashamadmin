@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { isAuthorized } from "@/lib/api-auth";
+import { getUploadsDir } from "@/lib/uploads";
 
 export async function POST(request: Request) {
   if (!isAuthorized(request)) {
@@ -16,8 +17,7 @@ export async function POST(request: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const uploadsDir =
-    process.env.UPLOAD_DIR ?? path.join(process.cwd(), "public", "uploads");
+  const uploadsDir = getUploadsDir();
   await mkdir(uploadsDir, { recursive: true });
 
   const ext = path.extname(file.name || "").toLowerCase() || ".png";

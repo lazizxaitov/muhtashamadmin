@@ -91,6 +91,9 @@ const normalizePosterImage = (value: string) => {
   if (trimmed.startsWith("/")) {
     return `https://joinposter.com${trimmed}`;
   }
+  if (trimmed.startsWith("upload/") || trimmed.includes("/upload/")) {
+    return `https://joinposter.com/${trimmed.replace(/^\/+/, "")}`;
+  }
   return trimmed;
 };
 
