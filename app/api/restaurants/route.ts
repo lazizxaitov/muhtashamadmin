@@ -4,6 +4,7 @@ import { hasPermission, isAuthorized } from "@/lib/api-auth";
 import { isRateLimited } from "@/lib/rate-limit";
 import { AdminRestaurantDTO, PublicRestaurantDTO } from "@/lib/restaurant-dto";
 import { isOnecTlsError, OnecTlsConfigError, pingOnecBaseUrl } from "@/lib/onec-tls";
+import { getNowMinutesInTimeZone } from "@/lib/timezone";
 
 export async function GET(request: Request) {
   const isAdmin = isAuthorized(request);
@@ -61,8 +62,9 @@ export async function GET(request: Request) {
     const endMinutes = parseTime(end);
     if (startMinutes === null || endMinutes === null) return null;
     if (startMinutes === endMinutes) return true;
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const nowMinutes =
+      getNowMinutesInTimeZone("Asia/Tashkent") ??
+      new Date().getHours() * 60 + new Date().getMinutes();
     if (startMinutes < endMinutes) {
       return nowMinutes >= startMinutes && nowMinutes < endMinutes;
     }
@@ -186,8 +188,9 @@ export async function POST(request: Request) {
     const endMinutes = parseTime(end);
     if (startMinutes === null || endMinutes === null) return null;
     if (startMinutes === endMinutes) return true;
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const nowMinutes =
+      getNowMinutesInTimeZone("Asia/Tashkent") ??
+      new Date().getHours() * 60 + new Date().getMinutes();
     if (startMinutes < endMinutes) {
       return nowMinutes >= startMinutes && nowMinutes < endMinutes;
     }

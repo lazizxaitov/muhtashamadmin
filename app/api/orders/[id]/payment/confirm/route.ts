@@ -21,6 +21,12 @@ const fetchWithTimeout = async (
   }
 };
 
+const normalizePlumBaseUrl = (value: string) =>
+  value
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/payment\/.*$/i, "");
+
 const extractPosterError = (data: unknown) => {
   if (!data || typeof data !== "object") return "";
   const record = data as Record<string, unknown>;
@@ -163,7 +169,7 @@ const getPlumConfig = async () => {
   );
   const map = new Map(settings.map((row) => [row.key, row.value ?? ""]));
   const baseUrl =
-    (map.get("plum_base_url") ?? "").trim() ||
+    normalizePlumBaseUrl(map.get("plum_base_url") ?? "") ||
     (process.env.PAYMENT_BASE_URL ?? "").trim();
   const login = (map.get("plum_login") ?? "").trim();
   const password = (map.get("plum_password") ?? "").trim();
@@ -260,7 +266,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     10000
   );
   const data = await response.json().catch(() => null);
-  const error = (data as { error?: string } | null)?.error ?? null;
+  const error = (data as { error?: unknown } | null)?.error ?? null;
   if (!response.ok || error) {
     await db.run(
       "UPDATE orders SET payment_confirm_payload_json = ? WHERE id = ?",

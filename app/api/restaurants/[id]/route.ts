@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { hasPermission, isAuthorized } from "@/lib/api-auth";
+import { getNowMinutesInTimeZone } from "@/lib/timezone";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -174,8 +175,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const endMinutes = parseTime(end);
       if (startMinutes === null || endMinutes === null) return null;
       if (startMinutes === endMinutes) return true;
-      const now = new Date();
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const nowMinutes =
+        getNowMinutesInTimeZone("Asia/Tashkent") ??
+        new Date().getHours() * 60 + new Date().getMinutes();
       if (startMinutes < endMinutes) {
         return nowMinutes >= startMinutes && nowMinutes < endMinutes;
       }

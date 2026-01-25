@@ -87,6 +87,12 @@ const fetchWithTimeout = async (
   }
 };
 
+const normalizePlumBaseUrl = (value: string) =>
+  value
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/payment\/.*$/i, "");
+
 const ensureSettingsTable = async () => {
   await db.run(
     `CREATE TABLE IF NOT EXISTS app_settings (
@@ -790,7 +796,7 @@ export async function POST(request: Request) {
     );
     const settingsMap = new Map(settings.map((row) => [row.key, row.value ?? ""]));
     const baseUrl =
-      (settingsMap.get("plum_base_url") ?? "").trim() ||
+      normalizePlumBaseUrl(settingsMap.get("plum_base_url") ?? "") ||
       (process.env.PAYMENT_BASE_URL ?? "").trim();
     const login = (settingsMap.get("plum_login") ?? "").trim();
     const password = (settingsMap.get("plum_password") ?? "").trim();
@@ -838,7 +844,8 @@ export async function POST(request: Request) {
       "UPDATE orders SET payment_payload_json = ? WHERE id = ?",
       [JSON.stringify(paymentResponse), orderId]
     );
-    if (!paymentResult.ok || (paymentResult.data as { error?: string } | null)?.error) {
+    const plumError = (paymentResult.data as { error?: unknown } | null)?.error;
+    if (!paymentResult.ok || plumError) {
       await updateOrderStatus({
         orderId,
         status: "failed",
