@@ -167,8 +167,16 @@ const createCardPayment = async (input: {
     },
     10000
   );
-  const data = await response.json().catch(() => null);
-  return { ok: response.ok, data };
+  const rawText = await response.text().catch(() => "");
+  let data: unknown = null;
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = null;
+    }
+  }
+  return { ok: response.ok, status: response.status, data, rawText };
 };
 
 const isValidCardNumber = (value: string) => {
@@ -854,7 +862,11 @@ export async function POST(request: Request) {
       extraId: `order-${orderId}`,
       transactionData: body?.transactionData ?? "",
     });
-    paymentResponse = paymentResult.data;
+    paymentResponse =
+      paymentResult.data ??
+      (paymentResult.rawText
+        ? { message: paymentResult.rawText, status: paymentResult.status }
+        : { message: "Empty response from payment gateway." });
     await db.run(
       "UPDATE orders SET payment_payload_json = ? WHERE id = ?",
       [JSON.stringify(paymentResponse), orderId]
