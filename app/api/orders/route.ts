@@ -188,6 +188,21 @@ const isValidCardNumber = (value: string) => {
   return sum % 10 === 0;
 };
 
+const normalizeCardNumber = (value: string) => value.replace(/\D+/g, "");
+
+const normalizeExpireDate = (value: string) => {
+  const digits = value.replace(/\D+/g, "");
+  if (digits.length !== 4) return digits;
+  const first = Number(digits.slice(0, 2));
+  const second = Number(digits.slice(2, 4));
+  if (Number.isFinite(first) && Number.isFinite(second)) {
+    if (first >= 1 && first <= 12) {
+      return digits.slice(2, 4) + digits.slice(0, 2);
+    }
+  }
+  return digits;
+};
+
 const isValidExpireDate = (value: string) => {
   if (!/^\d{4}$/.test(value)) return false;
   const year = Number(value.slice(0, 2));
@@ -804,8 +819,8 @@ export async function POST(request: Request) {
       login && password
         ? `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`
         : "";
-    const cardNumber = (body?.cardNumber ?? "").trim();
-    const expireDate = (body?.expireDate ?? "").trim();
+    const cardNumber = normalizeCardNumber(body?.cardNumber ?? "");
+    const expireDate = normalizeExpireDate(body?.expireDate ?? "");
     if (!baseUrl || !cardNumber || !expireDate) {
       await updateOrderStatus({
         orderId,
