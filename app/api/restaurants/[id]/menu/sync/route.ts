@@ -406,9 +406,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         hidden: number;
         name_ru: string | null;
         name_uz: string | null;
+        category_id: number | null;
       }>(
-        "SELECT id, hidden, name_ru, name_uz FROM menu_items WHERE category_id = ? AND source = 'poster' AND source_id = ?",
-        [categoryId, sourceId],
+        `SELECT mi.id, mi.hidden, mi.name_ru, mi.name_uz, mi.category_id
+         FROM menu_items mi
+         JOIN menu_categories mc ON mc.id = mi.category_id
+         WHERE mc.restaurant_id = ? AND mi.source = 'poster' AND mi.source_id = ?`,
+        [restaurantId, sourceId],
         client
       );
 
@@ -421,16 +425,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
           overwriteNames || !existing.name_uz?.trim()
             ? name
             : existing.name_uz;
+        const nextCategoryId =
+          existing.category_id && existing.category_id !== categoryId
+            ? categoryId
+            : existing.category_id ?? categoryId;
         if (image) {
           await db.run(
-            "UPDATE menu_items SET name_ru = ?, name_uz = ?, price = ?, sort_order = ?, image = ? WHERE id = ?",
-            [nextNameRu, nextNameUz, price, order, image, existing.id],
+            "UPDATE menu_items SET name_ru = ?, name_uz = ?, price = ?, sort_order = ?, image = ?, category_id = ? WHERE id = ?",
+            [nextNameRu, nextNameUz, price, order, image, nextCategoryId, existing.id],
             client
           );
         } else {
           await db.run(
-            "UPDATE menu_items SET name_ru = ?, name_uz = ?, price = ?, sort_order = ? WHERE id = ?",
-            [nextNameRu, nextNameUz, price, order, existing.id],
+            "UPDATE menu_items SET name_ru = ?, name_uz = ?, price = ?, sort_order = ?, category_id = ? WHERE id = ?",
+            [nextNameRu, nextNameUz, price, order, nextCategoryId, existing.id],
             client
           );
         }
