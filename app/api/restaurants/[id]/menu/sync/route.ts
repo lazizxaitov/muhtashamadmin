@@ -374,7 +374,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     for (const [index, product] of posterProducts.entries()) {
-      const sourceId = String(product.product_id ?? product.id ?? "");
+      const canonicalSourceId = String(product.product_id ?? "").trim();
+      const legacySourceId = String(product.id ?? "").trim();
+      const sourceIds = [canonicalSourceId, legacySourceId].filter(
+        (value, idx, arr) => Boolean(value) && arr.indexOf(value) === idx
+      );
+      const sourceId = sourceIds[0] ?? "";
       const categorySourceId = String(
         product.category_id ??
           product.menu_category_id ??
@@ -401,8 +406,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const price = getProductPrice(product, spotId);
       const image = getProductImage(product);
 
-      const existingRows = await db.all<{
+      const existingRows =
+        sourceIds.length === 0
+          ? []
+          : await db.all<{
         id: number;
+        source_id: string;
         hidden: number;
         name_ru: string | null;
         name_uz: string | null;
@@ -411,6 +420,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         category_id: number | null;
       }>(
         `SELECT mi.id,
+                mi.source_id,
                 mi.hidden,
                 mi.name_ru,
                 mi.name_uz,
@@ -419,8 +429,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 mi.category_id
          FROM menu_items mi
          JOIN menu_categories mc ON mc.id = mi.category_id
-         WHERE mc.restaurant_id = ? AND mi.source = 'poster' AND mi.source_id = ?`,
-        [restaurantId, sourceId],
+         WHERE mc.restaurant_id = ? AND mi.source = 'poster' AND mi.source_id IN (${sourceIds
+           .map(() => "?")
+           .join(", ")})`,
+        [restaurantId, ...sourceIds],
         client
       );
 
@@ -456,7 +468,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         if (image) {
           await db.run(
-            "UPDATE menu_items SET category_id = ?, hidden = ?, name_ru = ?, name_uz = ?, description_ru = ?, description_uz = ?, price = ?, sort_order = ?, image = ? WHERE id = ?",
+            "UPDATE menu_items SET category_id = ?, hidden = ?, name_ru = ?, name_uz = ?, description_ru = ?, description_uz = ?, price = ?, sort_order = ?, image = ?, source_id = ? WHERE id = ?",
             [
               categoryId,
               mergedHidden,
@@ -467,13 +479,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
               price,
               order,
               image,
+              canonicalSourceId || keep.source_id || sourceId,
               keep.id,
             ],
             client
           );
         } else {
           await db.run(
-            "UPDATE menu_items SET category_id = ?, hidden = ?, name_ru = ?, name_uz = ?, description_ru = ?, description_uz = ?, price = ?, sort_order = ? WHERE id = ?",
+            "UPDATE menu_items SET category_id = ?, hidden = ?, name_ru = ?, name_uz = ?, description_ru = ?, description_uz = ?, price = ?, sort_order = ?, source_id = ? WHERE id = ?",
             [
               categoryId,
               mergedHidden,
@@ -483,6 +496,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
               mergedDescriptionUz,
               price,
               order,
+              canonicalSourceId || keep.source_id || sourceId,
               keep.id,
             ],
             client
@@ -502,7 +516,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       } else {
         await db.run(
           "INSERT INTO menu_items (category_id, name_ru, name_uz, description_ru, description_uz, price, image, hidden, sort_order, source, source_id) VALUES (?, ?, ?, '', '', ?, ?, ?, ?, 'poster', ?)",
-          [categoryId, name, name, price, image, 0, order, sourceId],
+          [categoryId, name, name, price, image, 0, order, canonicalSourceId || sourceId],
           client
         );
       }
