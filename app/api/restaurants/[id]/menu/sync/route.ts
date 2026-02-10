@@ -401,14 +401,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const price = getProductPrice(product, spotId);
       const image = getProductImage(product);
 
-      const existing = await db.get<{
+      const existingRows = await db.all<{
         id: number;
         hidden: number;
         name_ru: string | null;
         name_uz: string | null;
+        description_ru: string | null;
+        description_uz: string | null;
         category_id: number | null;
       }>(
-        `SELECT mi.id, mi.hidden, mi.name_ru, mi.name_uz, mi.category_id
+        `SELECT mi.id,
+                mi.hidden,
+                mi.name_ru,
+                mi.name_uz,
+                mi.description_ru,
+                mi.description_uz,
+                mi.category_id
          FROM menu_items mi
          JOIN menu_categories mc ON mc.id = mi.category_id
          WHERE mc.restaurant_id = ? AND mi.source = 'poster' AND mi.source_id = ?`,
@@ -416,29 +424,78 @@ export async function POST(request: NextRequest, context: RouteContext) {
         client
       );
 
-      if (existing) {
-        const nextNameRu =
-          overwriteNames || !existing.name_ru?.trim()
+      if (existingRows.length > 0) {
+        // Old versions could duplicate the same Poster product across categories.
+        // Keep the row in the target category if present; otherwise keep the newest row.
+        const inTarget = existingRows.find((row) => row.category_id === categoryId);
+        const keep =
+          inTarget ??
+          existingRows.reduce((acc, row) => (row.id > acc.id ? row : acc), existingRows[0]);
+
+        const mergedHidden = existingRows.some((row) => row.hidden) ? 1 : 0;
+        const mergedNameRu =
+          overwriteNames
             ? name
-            : existing.name_ru;
-        const nextNameUz =
-          overwriteNames || !existing.name_uz?.trim()
+            : keep.name_ru?.trim() ||
+              existingRows.find((row) => row.name_ru?.trim())?.name_ru ||
+              name;
+        const mergedNameUz =
+          overwriteNames
             ? name
-            : existing.name_uz;
-        const nextCategoryId =
-          existing.category_id && existing.category_id !== categoryId
-            ? categoryId
-            : existing.category_id ?? categoryId;
+            : keep.name_uz?.trim() ||
+              existingRows.find((row) => row.name_uz?.trim())?.name_uz ||
+              name;
+        const mergedDescriptionRu =
+          keep.description_ru?.trim() ||
+          existingRows.find((row) => row.description_ru?.trim())?.description_ru ||
+          "";
+        const mergedDescriptionUz =
+          keep.description_uz?.trim() ||
+          existingRows.find((row) => row.description_uz?.trim())?.description_uz ||
+          "";
+
         if (image) {
           await db.run(
-            "UPDATE menu_items SET name_ru = ?, name_uz = ?, price = ?, sort_order = ?, image = ?, category_id = ? WHERE id = ?",
-            [nextNameRu, nextNameUz, price, order, image, nextCategoryId, existing.id],
+            "UPDATE menu_items SET category_id = ?, hidden = ?, name_ru = ?, name_uz = ?, description_ru = ?, description_uz = ?, price = ?, sort_order = ?, image = ? WHERE id = ?",
+            [
+              categoryId,
+              mergedHidden,
+              mergedNameRu,
+              mergedNameUz,
+              mergedDescriptionRu,
+              mergedDescriptionUz,
+              price,
+              order,
+              image,
+              keep.id,
+            ],
             client
           );
         } else {
           await db.run(
-            "UPDATE menu_items SET name_ru = ?, name_uz = ?, price = ?, sort_order = ?, category_id = ? WHERE id = ?",
-            [nextNameRu, nextNameUz, price, order, nextCategoryId, existing.id],
+            "UPDATE menu_items SET category_id = ?, hidden = ?, name_ru = ?, name_uz = ?, description_ru = ?, description_uz = ?, price = ?, sort_order = ? WHERE id = ?",
+            [
+              categoryId,
+              mergedHidden,
+              mergedNameRu,
+              mergedNameUz,
+              mergedDescriptionRu,
+              mergedDescriptionUz,
+              price,
+              order,
+              keep.id,
+            ],
+            client
+          );
+        }
+
+        const idsToDelete = existingRows
+          .map((row) => row.id)
+          .filter((rowId) => rowId !== keep.id);
+        if (idsToDelete.length > 0) {
+          await db.run(
+            `DELETE FROM menu_items WHERE id IN (${idsToDelete.map(() => "?").join(",")})`,
+            idsToDelete,
             client
           );
         }

@@ -1,0 +1,5 @@
+---------------------------
+create symlink to ../../node_modules/better-sqlite3
+
+Caused by:
+- Клиент не обладает требуемыми правами. (os error 1314)
